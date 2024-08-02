@@ -15,9 +15,41 @@ const App = () => {
   const [emotionDistribution, setEmotionDistribution] = useState([]);
   const [tableData, setTableData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [audioUrlDG, setAudioUrlDG] = useState('https://res.cloudinary.com/dj3qabx11/video/upload/v1721936278/91-giving-directions_lpalup.mp3');
+  const apiKeyDeepgram = import.meta.env.VITE_DEEPGRAM_API_KEY;
 
   const apiKey = import.meta.env.VITE_HUME_API_KEY;
 
+  const handleTranscription = async () => {
+    setLoading(true);
+
+    try {
+      const response = await axios.post(
+        'https://api.deepgram.com/v1/listen',
+        {
+          url: audioUrlDG
+        },
+        {
+          headers: {
+            Authorization: `Token ${apiKeyDeepgram}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      setTranscript(response.data.results.channels[0].alternatives[0].transcript);
+    } catch (error) {
+      console.error('Error fetching transcription:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDGUrlChange = (event) => {
+    setAudioUrlDG(event.target.value);
+  };
   const handleUrlChange = (event) => {
     setAudioUrl(event.target.value);
   };
@@ -162,6 +194,29 @@ const App = () => {
   };
 
   return (
+   <div>
+    <div>
+    <div>
+      <h1>Voice to Text Converter</h1>
+      <input
+        type="text"
+        placeholder="Enter audio URL"
+        value={audioUrlDG}
+        onChange={handleDGUrlChange}
+        className='mr-5'
+      />
+      <button onClick={handleTranscription} disabled={loading}>
+        {loading ? 'Transcribing...' : 'Convert Voice to Text'}
+      </button>
+      {transcript && (
+        <div>
+          <h2>Transcript:</h2>
+          <p>{transcript}</p>
+        </div>
+      )}
+    </div>
+    </div>
+
     <div className='flex justify-center items-center min-h-screen'>
       <h1>Audio Analyzer</h1>
       <input
@@ -222,6 +277,7 @@ const App = () => {
         </table>
       )}
     </div>
+   </div>
   );
 };
 
