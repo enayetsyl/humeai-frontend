@@ -1,75 +1,66 @@
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
-import { Line, Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const App = () => {
-  const [audioUrl, setAudioUrl] = useState('https://res.cloudinary.com/dj3qabx11/video/upload/v1721936278/91-giving-directions_lpalup.mp3');
+  const [transcript, setTranscript] = useState([]);
+  const [loadingTranscription, setLoadingTranscription] = useState(false);
+  const [loadingEmotionAnalysis, setLoadingEmotionAnalysis] = useState(false);
+  const [loadingEmotionFetch, setLoadingEmotionFetch] = useState(false);
   const [jobId, setJobId] = useState('');
   const [emotions, setEmotions] = useState([]);
-  const [topEmotions, setTopEmotions] = useState([]);
-  const [confidence, setConfidence] = useState([]);
-  const [timestamps, setTimestamps] = useState([]);
-  const [emotionDistribution, setEmotionDistribution] = useState([]);
-  const [tableData, setTableData] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [transcript, setTranscript] = useState('')
-  const [transcriptWithTimestamps, setTranscriptWithTimestamps] = useState([]);
+  const [audioUrl, setAudioUrl] = useState('');
 
-  const [loading, setLoading] = useState(false);
-  const [audioUrlDG, setAudioUrlDG] = useState('https://res.cloudinary.com/dj3qabx11/video/upload/v1721936278/91-giving-directions_lpalup.mp3');
-  const apiKeyDeepgram = import.meta.env.VITE_DEEPGRAM_API_KEY;
-
-  const apiKey = import.meta.env.VITE_HUME_API_KEY;
-
-  const handleTranscription = async () => {
-    setLoading(true);
-  
+  const handleTranscribe = async () => {
+    setLoadingTranscription(true);
     try {
       const response = await axios.post(
-        'https://api.deepgram.com/v1/listen',
+        'https://api.assemblyai.com/v2/transcript',
         {
-          url: audioUrlDG
+          audio_url: audioUrl,
+          speaker_labels: true,
         },
         {
           headers: {
-            Authorization: `Token ${apiKeyDeepgram}`,
-            'Content-Type': 'application/json'
-          }
+            authorization: import.meta.env.VITE_UNIVERSAL_API_KEY,
+            'content-type': 'application/json',
+          },
         }
       );
-  
-      const transcript = response.data.results.channels[0].alternatives[0].transcript;
-      const wordsWithTimestamps = response.data.results.channels[0].alternatives[0].words.map(word => ({
-        startTime: word.start,
-        endTime: word.end,
-        word: word.word
-      }));
-  
-      setTranscript(transcript);
-      setTranscriptWithTimestamps(wordsWithTimestamps);
+
+      const { id } = response.data;
+      const checkStatusInterval = setInterval(async () => {
+        const statusResponse = await axios.get(`https://api.assemblyai.com/v2/transcript/${id}`, {
+          headers: {
+            authorization: import.meta.env.VITE_UNIVERSAL_API_KEY,
+          },
+        });
+
+        if (statusResponse.data.status === 'completed') {
+          clearInterval(checkStatusInterval);
+          const utterances = statusResponse.data.utterances || [];
+          console.log('utterances', utterances);
+          setTranscript(utterances);
+          setLoadingTranscription(false);
+        } else if (statusResponse.data.status === 'failed') {
+          clearInterval(checkStatusInterval);
+          setTranscript('Transcription failed');
+          setLoadingTranscription(false);
+        }
+      }, 5000);
     } catch (error) {
-      console.error('Error fetching transcription:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error transcribing audio:', error);
+      setTranscript('Error transcribing audio');
+      setLoadingTranscription(false);
     }
   };
-  
 
-  const handleDGUrlChange = (event) => {
-    setAudioUrlDG(event.target.value);
-  };
-  const handleUrlChange = (event) => {
-    setAudioUrl(event.target.value);
-  };
-
-  const handleSubmit = async () => {
-    if (!audioUrl) return;
-
+  const handleEmotionAnalysis = async () => {
+    setLoadingEmotionAnalysis(true);
     try {
-      // Step 1: Send the audio URL to the Hume AI API and get a job ID
       const response = await axios.post(
         'https://api.hume.ai/v0/batch/jobs',
         {
@@ -78,227 +69,176 @@ const App = () => {
         {
           headers: {
             'Content-Type': 'application/json',
-            'X-Hume-Api-Key': apiKey
+            'X-Hume-Api-Key': import.meta.env.VITE_HUME_API_KEY
           }
         }
       );
-      setJobId(response.data.job_id);
+
+      const jobId = response.data.job_id;
+      setJobId(jobId);
+      console.log('jobid', jobId)
+      setLoadingEmotionAnalysis(false);
     } catch (error) {
       console.error('Error sending audio URL:', error);
+      setLoadingEmotionAnalysis(false);
     }
   };
 
-  const checkJobStatus = async () => {
-    if (!jobId) return;
-    setIsLoading(true);
-
+  const handleFetchEmotions = async () => {
+    setLoadingEmotionFetch(true);
     setTimeout(async () => {
       try {
-        // Step 2: Fetch job results using the job ID
-        const response = await axios.get(
+        const resultResponse = await axios.get(
           `https://api.hume.ai/v0/batch/jobs/${jobId}/predictions`,
           {
             headers: {
-              'X-Hume-Api-Key': apiKey
+              'X-Hume-Api-Key': import.meta.env.VITE_HUME_API_KEY
             }
           }
         );
 
-        if (response.data[0] && response.data[0].results && response.data[0].results.predictions) {
-          const prediction = response.data[0].results.predictions[0]; // Use the first prediction as an example
-          const prosody = prediction.models.prosody.grouped_predictions[0].predictions;
-          const allEmotions = prosody.flatMap(p => p.emotions.map(e => e.name));
-          const uniqueEmotions = [...new Set(allEmotions)];
-          const emotionCounts = uniqueEmotions.map(emotion => ({
-            emotion,
-            count: prosody.filter(p => p.emotions.some(e => e.name === emotion)).length,
-          }));
-          const sortedEmotions = emotionCounts.sort((a, b) => b.count - a.count);
-          const topThreeEmotions = sortedEmotions.slice(0, 3).map(e => e.emotion);
+        if (resultResponse.data[0] && resultResponse.data[0].results && resultResponse.data[0].results.predictions) {
+          const prediction = resultResponse.data[0].results.predictions[0];
+          console.log('prediction', prediction);
+          const wordEmotions = prediction.models.language.grouped_predictions[0].predictions;
+          
+          const sentenceEmotions = transcript.map(sentence => {
+            const words = sentence.text.split(' ').slice(0, 4); // Get first 4 words
+            const matchingWords = wordEmotions.filter(wordEmotion => words.includes(wordEmotion.text));
 
-          setTopEmotions(topThreeEmotions);
-
-          const newTableData = prosody.map((p, index) => {
-            const row = {
-              text: p.text,
-              startTime: p.time.begin ? p.time.begin.toFixed(2) : '0.00',
-              endTime: p.time.end ? p.time.end.toFixed(2) : '0.00',
-              confidence: p.confidence ? p.confidence.toFixed(2) : '0.00',
+            const averagedEmotions = {
+              Interest: 0,
+              Excitement: 0,
+              SurprisePositive: 0,
+              SurpriseNegative: 0
             };
-            topThreeEmotions.forEach((emotion, i) => {
-              row[`emotion${i + 1}Name`] = emotion;
-              row[`emotion${i + 1}Score`] = p.emotions.find(e => e.name === emotion)?.score.toFixed(2) || '0.00';
+
+            matchingWords.forEach(wordEmotion => {
+              const interest = wordEmotion.emotions.find(e => e.name === 'Interest')?.score || 0;
+              const excitement = wordEmotion.emotions.find(e => e.name === 'Excitement')?.score || 0;
+              const surprisePositive = wordEmotion.emotions.find(e => e.name === 'Surprise (positive)')?.score || 0;
+              const surpriseNegative = wordEmotion.emotions.find(e => e.name === 'Surprise (negative)')?.score || 0;
+
+              averagedEmotions.Interest += interest;
+              averagedEmotions.Excitement += excitement;
+              averagedEmotions.SurprisePositive += surprisePositive;
+              averagedEmotions.SurpriseNegative += surpriseNegative;
             });
-            return row;
+
+            const wordCount = matchingWords.length || 1; // Avoid division by zero
+            averagedEmotions.Interest /= wordCount;
+            averagedEmotions.Excitement /= wordCount;
+            averagedEmotions.SurprisePositive /= wordCount;
+            averagedEmotions.SurpriseNegative /= wordCount;
+
+            return {
+              ...sentence,
+              emotions: averagedEmotions
+            };
           });
 
-          setTableData(newTableData);
-
-          setEmotions(prosody.flatMap(p => p.emotions));
-          setConfidence(prosody.map(p => p.confidence ? p.confidence.toFixed(2) : '0.00'));
-          setTimestamps(prosody.map(p => p.time.begin ? p.time.begin.toFixed(2) : '0.00'));
-          setEmotionDistribution(prosody.map(p => ({
-            text: p.text,
-            startTime: p.time.begin ? p.time.begin.toFixed(2) : '0.00',
-            endTime: p.time.end ? p.time.end.toFixed(2) : '0.00',
-            topEmotions: topThreeEmotions.map(te => ({
-              emotion: te,
-              score: p.emotions.find(e => e.name === te)?.score.toFixed(2) || '0.00',
-            })),
-          })));
+          setEmotions(sentenceEmotions);
         }
-
       } catch (error) {
         console.error('Error fetching job results:', error);
       } finally {
-        setIsLoading(false);
+        setLoadingEmotionFetch(false);
       }
-    }, 25000);
+    }, 25000); // 25 seconds timeout
   };
 
-  const emotionScoresData = {
-    labels: topEmotions,
-    datasets: [
-      {
-        label: 'Emotion Scores',
-        data: topEmotions.map(emotion => emotions.filter(e => e.name === emotion).reduce((sum, e) => sum + e.score, 0)),
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        borderWidth: 1,
-      },
-    ],
+  const mapEmotionsToSpeakers = () => {
+    const speakerEmotionMap = {};
+
+    transcript.forEach((utterance, index) => {
+      if (!speakerEmotionMap[utterance.speaker]) {
+        speakerEmotionMap[utterance.speaker] = [];
+      }
+      const emotionData = emotions[index]?.emotions || { Interest: 0, Excitement: 0, SurprisePositive: 0, SurpriseNegative: 0 };
+      speakerEmotionMap[utterance.speaker].push({
+        text: utterance.text,
+        emotions: emotionData
+      });
+    });
+
+    return speakerEmotionMap;
   };
 
-  const confidenceOverTimeData = {
-    labels: timestamps,
-    datasets: [
-      {
-        label: 'Confidence',
-        data: confidence,
-        fill: false,
-        borderColor: 'rgba(75, 192, 192, 1)',
-        tension: 0.1,
-      },
-    ],
-  };
+  const speakerEmotionMap = mapEmotionsToSpeakers();
 
-  const topEmotionsOverTimeData = {
-    labels: timestamps,
-    datasets: topEmotions.map((emotion, index) => ({
-      label: emotion,
-      data: emotions.filter(e => e.name === emotion).map(e => e.score),
-      fill: false,
-      borderColor: ['rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)', 'rgba(255, 206, 86, 1)'][index],
-      tension: 0.1,
-    })),
-  };
-
-  const emotionDistributionData = {
-    labels: emotionDistribution.map(d => d.text),
-    datasets: topEmotions.map((emotion, index) => ({
-      label: emotion,
-      data: emotionDistribution.map(d => d.topEmotions.find(e => e.emotion === emotion)?.score),
-      backgroundColor: ['rgba(255, 99, 132, 0.2)', 'rgba(54, 162, 235, 0.2)', 'rgba(255, 206, 86, 0.2)'][index],
-      borderColor: ['rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)', 'rgba(255, 206, 86, 1)'][index],
-      borderWidth: 1,
-    })),
+  const createChartData = (speakerData) => {
+    return {
+      labels: speakerData.map((data) => data.text),
+      datasets: [
+        {
+          label: 'Interest Emotion Score',
+          data: speakerData.map((data) => data.emotions.Interest),
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1,
+        },
+        {
+          label: 'Excitement Emotion Score',
+          data: speakerData.map((data) => data.emotions.Excitement),
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1,
+        },
+        {
+          label: 'Surprise (Positive) Emotion Score',
+          data: speakerData.map((data) => data.emotions.SurprisePositive),
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+        },
+        {
+          label: 'Surprise (Negative) Emotion Score',
+          data: speakerData.map((data) => data.emotions.SurpriseNegative),
+          backgroundColor: 'rgba(255, 206, 86, 0.2)',
+          borderColor: 'rgba(255, 206, 86, 1)',
+          borderWidth: 1,
+        }
+      ],
+    };
   };
 
   return (
-   <div>
-    <div>
-    <h1>Voice to Text Converter</h1>
-    <input
-      type="text"
-      placeholder="Enter audio URL"
-      value={audioUrlDG}
-      onChange={handleDGUrlChange}
-      className='mr-5'
-    />
-    <button onClick={handleTranscription} disabled={loading}>
-      {loading ? 'Transcribing...' : 'Convert Voice to Text'}
-    </button>
-    {transcript && (
-      <div>
-        <h2>Transcript:</h2>
-        <p>{transcript}</p>
-      </div>
-    )}
-    {transcriptWithTimestamps.length > 0 && (
-      <div>
-        <h2>Transcript with Timestamps:</h2>
-        <ul>
-          {transcriptWithTimestamps.map((item, index) => (
-            <li key={index}>
-              <strong>{item.word}</strong> (Start: {item.startTime.toFixed(2)}s, End: {item.endTime.toFixed(2)}s)
-            </li>
-          ))}
-        </ul>
-      </div>
-    )}
-  </div>
-
-    <div className='flex justify-center items-center min-h-screen'>
-      <h1>Audio Analyzer</h1>
-      <input
-        type="text"
-        placeholder="Enter audio URL"
-        value={audioUrl}
-        onChange={handleUrlChange}
-        className='mr-5'
+    <div className='p-10 max-h-screen max-w-1/2'>
+      <h1>Audio Transcription and Emotion Analysis</h1>
+      <input 
+        type="text" 
+        placeholder="Enter audio URL" 
+        value={audioUrl} 
+        onChange={(e) => setAudioUrl(e.target.value)} 
+        className="mb-4 p-2 border"
       />
-      <button onClick={handleSubmit}>{isLoading ? "Loading..." : 'Submit'}</button>
+      <button onClick={handleTranscribe} disabled={loadingTranscription || loadingEmotionAnalysis || loadingEmotionFetch}>
+        {loadingTranscription ? 'Transcribing...' : 'Transcribe Audio'}
+      </button>
+      {transcript.length > 0 && (
+        <button onClick={handleEmotionAnalysis} disabled={loadingEmotionAnalysis || loadingEmotionFetch}>
+          {loadingEmotionAnalysis ? 'Analyzing Emotions...' : 'Analyze Emotions'}
+        </button>
+      )}
       {jobId && (
-        <div>
-          <p>Job ID: {jobId}</p>
-          <button onClick={checkJobStatus}>{isLoading ? 'Loading...' : 'Check Job Status'}</button>
+        <button onClick={handleFetchEmotions} disabled={loadingEmotionFetch}>
+          {loadingEmotionFetch ? 'Fetching Emotions...' : 'Fetch Emotions'}
+        </button>
+      )}
+      <div className="mt-4">
+        {transcript.map((utterance, index) => (
+          <div key={index}>
+            <strong>Speaker {utterance.speaker}:</strong> {utterance.text}
+          </div>
+        ))}
+      </div>
+      {Object.keys(speakerEmotionMap).map(speaker => (
+        <div key={speaker}>
+          <h2>Speaker {speaker}</h2>
+          <Bar data={createChartData(speakerEmotionMap[speaker])} options={{ responsive: true }} />
         </div>
-      )}
-      {emotions.length > 0 && (
-        <div>
-          <h2>Emotions Chart</h2>
-          <Bar data={emotionScoresData} options={{ responsive: true }} />
-
-          <h2>Confidence Over Time</h2>
-          <Line data={confidenceOverTimeData} options={{ responsive: true }} />
-
-          <h2>Top Emotions Over Time</h2>
-          <Line data={topEmotionsOverTimeData} options={{ responsive: true }} />
-
-          <h2>Emotion Distribution</h2>
-          <Bar data={emotionDistributionData} options={{ responsive: true }} />
-        </div>
-      )}
-      {tableData.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Text</th>
-              <th>Start Time</th>
-              <th>End Time</th>
-              <th>Confidence</th>
-              {topEmotions.map((emotion, index) => (
-                <th key={index}>{emotion}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {tableData.map((row, index) => (
-              <tr key={index}>
-                <td>{row.text}</td>
-                <td>{row.startTime}</td>
-                <td>{row.endTime}</td>
-                <td>{row.confidence}</td>
-                {topEmotions.map((emotion, i) => (
-                  <td key={i}>{row[`emotion${i + 1}Score`]}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      ))}
     </div>
-   </div>
   );
 };
 

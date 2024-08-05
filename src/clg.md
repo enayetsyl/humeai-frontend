@@ -1,33 +1,52 @@
-const [transcript, setTranscript] = useState('');
-  const [loading, setLoading] = useState(false);
-  const apiKey = process.env.VITE_DEEPGRAM_API_KEY;
+// npm install assemblyai
 
-  const handleTranscription = async () => {
-    setLoading(true);
+import { AssemblyAI } from 'assemblyai'
 
-    try {
-      const response = await axios.post(
-        'https://api.deepgram.com/v1/listen',
-        {
-          url: 'https://res.cloudinary.com/dj3qabx11/video/upload/v1721936278/91-giving-directions_lpalup.mp3'
-        },
-        {
-          headers: {
-            Authorization: `Token ${apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+const client = new AssemblyAI({
+  apiKey: "b866e14b5aff4aedb53e510a0f3e8063"
+})
 
-      setTranscript(response.data.results.channels[0].alternatives[0].transcript);
-    } catch (error) {
-      console.error('Error fetching transcription:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+const audioUrl =
+  'https://storage.googleapis.com/aai-web-samples/5_common_sports_injuries.mp3'
 
-  return (
- 
-  );
+const config = {
+  audio_url: audioUrl
+}
+
+const run = async () => {
+  const transcript = await client.transcripts.transcribe(config)
+  console.log(transcript.text)
+}
+
+
+
+// Start by making sure the `assemblyai` package is installed.
+// If not, you can install it by running the following command:
+// npm install assemblyai
+
+import { AssemblyAI } from 'assemblyai';
+
+const client = new AssemblyAI({
+  apiKey: 'b866e14b5aff4aedb53e510a0f3e8063',
+});
+
+const FILE_URL =
+  'https://storage.googleapis.com/aai-web-samples/5_common_sports_injuries.mp3';
+
+// You can also transcribe a local file by passing in a file path
+// const FILE_URL = './path/to/file.mp3';
+
+// Request parameters 
+const data = {
+  audio_url: FILE_URL
+}
+
+const run = async () => {
+  const transcript = await client.transcripts.transcribe(data);
+  console.log(transcript.text);
 };
+
+run();
+
+
+
