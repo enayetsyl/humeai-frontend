@@ -1,4 +1,4 @@
-import  { useState } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
@@ -12,7 +12,7 @@ const App = () => {
   const [loadingEmotionFetch, setLoadingEmotionFetch] = useState(false);
   const [jobId, setJobId] = useState('');
   const [emotions, setEmotions] = useState([]);
-  const [audioUrl, setAudioUrl] = useState('https://res.cloudinary.com/dj3qabx11/video/upload/v1722643214/89-how-have-you-been_oj2f5r.mp3');
+  const [audioUrl, setAudioUrl] = useState('');
 
   const handleTranscribe = async () => {
     setLoadingTranscription(true);
@@ -107,37 +107,29 @@ const App = () => {
             const matchingWords = wordEmotions.filter(wordEmotion => words.includes(wordEmotion.text));
 
             const averagedEmotions = {
-              Boredom: 0,
               Interest: 0,
-              Tiredness: 0,
-              Doubt: 0,
-              Confusion: 0,
-              Disappointment: 0
+              Excitement: 0,
+              SurprisePositive: 0,
+              SurpriseNegative: 0
             };
 
             matchingWords.forEach(wordEmotion => {
-              const boredom = wordEmotion.emotions.find(e => e.name === 'Boredom')?.score || 0;
               const interest = wordEmotion.emotions.find(e => e.name === 'Interest')?.score || 0;
-              const tiredness = wordEmotion.emotions.find(e => e.name === 'Tiredness')?.score || 0;
-              const doubt = wordEmotion.emotions.find(e => e.name === 'Doubt')?.score || 0;
-              const confusion = wordEmotion.emotions.find(e => e.name === 'Confusion')?.score || 0;
-              const disappointment = wordEmotion.emotions.find(e => e.name === 'Disappointment')?.score || 0;
+              const excitement = wordEmotion.emotions.find(e => e.name === 'Excitement')?.score || 0;
+              const surprisePositive = wordEmotion.emotions.find(e => e.name === 'Surprise (positive)')?.score || 0;
+              const surpriseNegative = wordEmotion.emotions.find(e => e.name === 'Surprise (negative)')?.score || 0;
 
-              averagedEmotions.Boredom += boredom;
               averagedEmotions.Interest += interest;
-              averagedEmotions.Tiredness += tiredness;
-              averagedEmotions.Doubt += doubt;
-              averagedEmotions.Confusion += confusion;
-              averagedEmotions.Disappointment += disappointment;
+              averagedEmotions.Excitement += excitement;
+              averagedEmotions.SurprisePositive += surprisePositive;
+              averagedEmotions.SurpriseNegative += surpriseNegative;
             });
 
             const wordCount = matchingWords.length || 1; // Avoid division by zero
-            averagedEmotions.Boredom /= wordCount;
             averagedEmotions.Interest /= wordCount;
-            averagedEmotions.Tiredness /= wordCount;
-            averagedEmotions.Doubt /= wordCount;
-            averagedEmotions.Confusion /= wordCount;
-            averagedEmotions.Disappointment /= wordCount;
+            averagedEmotions.Excitement /= wordCount;
+            averagedEmotions.SurprisePositive /= wordCount;
+            averagedEmotions.SurpriseNegative /= wordCount;
 
             return {
               ...sentence,
@@ -162,7 +154,7 @@ const App = () => {
       if (!speakerEmotionMap[utterance.speaker]) {
         speakerEmotionMap[utterance.speaker] = [];
       }
-      const emotionData = emotions[index]?.emotions || { Boredom: 0, Interest: 0, Tiredness: 0, Doubt: 0, Confusion: 0, Disappointment: 0 };
+      const emotionData = emotions[index]?.emotions || { Interest: 0, Excitement: 0, SurprisePositive: 0, SurpriseNegative: 0 };
       speakerEmotionMap[utterance.speaker].push({
         text: utterance.text,
         emotions: emotionData
@@ -179,13 +171,6 @@ const App = () => {
       labels: speakerData.map((data) => data.text),
       datasets: [
         {
-          label: 'Boredom Emotion Score',
-          data: speakerData.map((data) => data.emotions.Boredom),
-          backgroundColor: 'rgba(255, 99, 132, 0.2)',
-          borderColor: 'rgba(255, 99, 132, 1)',
-          borderWidth: 1,
-        },
-        {
           label: 'Interest Emotion Score',
           data: speakerData.map((data) => data.emotions.Interest),
           backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -193,31 +178,24 @@ const App = () => {
           borderWidth: 1,
         },
         {
-          label: 'Tiredness Emotion Score',
-          data: speakerData.map((data) => data.emotions.Tiredness),
+          label: 'Excitement Emotion Score',
+          data: speakerData.map((data) => data.emotions.Excitement),
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1,
+        },
+        {
+          label: 'Surprise (Positive) Emotion Score',
+          data: speakerData.map((data) => data.emotions.SurprisePositive),
           backgroundColor: 'rgba(54, 162, 235, 0.2)',
           borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1,
         },
         {
-          label: 'Doubt Emotion Score',
-          data: speakerData.map((data) => data.emotions.Doubt),
+          label: 'Surprise (Negative) Emotion Score',
+          data: speakerData.map((data) => data.emotions.SurpriseNegative),
           backgroundColor: 'rgba(255, 206, 86, 0.2)',
           borderColor: 'rgba(255, 206, 86, 1)',
-          borderWidth: 1,
-        },
-        {
-          label: 'Confusion Emotion Score',
-          data: speakerData.map((data) => data.emotions.Confusion),
-          backgroundColor: 'rgba(153, 102, 255, 0.2)',
-          borderColor: 'rgba(153, 102, 255, 1)',
-          borderWidth: 1,
-        },
-        {
-          label: 'Disappointment Emotion Score',
-          data: speakerData.map((data) => data.emotions.Disappointment),
-          backgroundColor: 'rgba(255, 159, 64, 0.2)',
-          borderColor: 'rgba(255, 159, 64, 1)',
           borderWidth: 1,
         }
       ],
