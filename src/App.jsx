@@ -96,16 +96,27 @@ const App = () => {
             }
           }
         );
-
+  
         if (resultResponse.data[0] && resultResponse.data[0].results && resultResponse.data[0].results.predictions) {
           const prediction = resultResponse.data[0].results.predictions[0];
           console.log('prediction', prediction);
           const wordEmotions = prediction.models.language.grouped_predictions[0].predictions;
-          
+  
           const sentenceEmotions = transcript.map(sentence => {
-            const words = sentence.text.split(' ').slice(0, 4); // Get first 4 words
-            const matchingWords = wordEmotions.filter(wordEmotion => words.includes(wordEmotion.text));
-
+            const words = sentence.text.split(' ').slice(0, 4).map(word => word.replace(/[.,!?]/g, '').toLowerCase()); // Normalize words
+            const uniqueWords = new Set();
+            const matchingWords = wordEmotions.filter(wordEmotion => {
+              const normalizedWord = wordEmotion.text.replace(/[.,!?]/g, '').toLowerCase(); // Normalize wordEmotion text
+              if (uniqueWords.has(normalizedWord) || !words.includes(normalizedWord)) {
+                return false;
+              }
+              uniqueWords.add(normalizedWord);
+              return true;
+            });
+  
+            console.log('words', words); // Added
+            console.log('matchingWords', matchingWords); // Added
+  
             const averagedEmotions = {
               Boredom: 0,
               Interest: 0,
@@ -114,7 +125,7 @@ const App = () => {
               Confusion: 0,
               Disappointment: 0
             };
-
+  
             matchingWords.forEach(wordEmotion => {
               const boredom = wordEmotion.emotions.find(e => e.name === 'Boredom')?.score || 0;
               const interest = wordEmotion.emotions.find(e => e.name === 'Interest')?.score || 0;
@@ -122,7 +133,7 @@ const App = () => {
               const doubt = wordEmotion.emotions.find(e => e.name === 'Doubt')?.score || 0;
               const confusion = wordEmotion.emotions.find(e => e.name === 'Confusion')?.score || 0;
               const disappointment = wordEmotion.emotions.find(e => e.name === 'Disappointment')?.score || 0;
-
+  
               averagedEmotions.Boredom += boredom;
               averagedEmotions.Interest += interest;
               averagedEmotions.Tiredness += tiredness;
@@ -130,7 +141,7 @@ const App = () => {
               averagedEmotions.Confusion += confusion;
               averagedEmotions.Disappointment += disappointment;
             });
-
+  
             const wordCount = matchingWords.length || 1; // Avoid division by zero
             averagedEmotions.Boredom /= wordCount;
             averagedEmotions.Interest /= wordCount;
@@ -138,13 +149,14 @@ const App = () => {
             averagedEmotions.Doubt /= wordCount;
             averagedEmotions.Confusion /= wordCount;
             averagedEmotions.Disappointment /= wordCount;
-
+  
             return {
               ...sentence,
               emotions: averagedEmotions
             };
           });
-
+  
+          console.log('sentenceEmotions', sentenceEmotions); // Added
           setEmotions(sentenceEmotions);
         }
       } catch (error) {
@@ -154,6 +166,9 @@ const App = () => {
       }
     }, 25000); // 25 seconds timeout
   };
+  
+  
+  
 
   const mapEmotionsToSpeakers = () => {
     const speakerEmotionMap = {};
@@ -168,13 +183,14 @@ const App = () => {
         emotions: emotionData
       });
     });
-
+    console.log('speakerEmotionMap', speakerEmotionMap);
     return speakerEmotionMap;
   };
 
   const speakerEmotionMap = mapEmotionsToSpeakers();
 
   const createChartData = (speakerData) => {
+    console.log('speakerData', speakerData);
     return {
       labels: speakerData.map((data) => data.text),
       datasets: [
@@ -265,3 +281,6 @@ const App = () => {
 };
 
 export default App;
+
+
+
