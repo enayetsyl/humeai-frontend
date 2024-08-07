@@ -1,4 +1,4 @@
-import  { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
@@ -13,6 +13,7 @@ const App = () => {
   const [jobId, setJobId] = useState('');
   const [emotions, setEmotions] = useState([]);
   const [audioUrl, setAudioUrl] = useState('https://res.cloudinary.com/dj3qabx11/video/upload/v1722643214/89-how-have-you-been_oj2f5r.mp3');
+  const [speakerPage, setSpeakerPage] = useState({});
 
   const handleTranscribe = async () => {
     setLoadingTranscription(true);
@@ -114,8 +115,8 @@ const App = () => {
               return true;
             });
   
-            console.log('words', words); // Added
-            console.log('matchingWords', matchingWords); // Added
+            // console.log('words', words); // Added
+            // console.log('matchingWords', matchingWords); // Added
   
             const averagedEmotions = {
               Boredom: 0,
@@ -156,7 +157,7 @@ const App = () => {
             };
           });
   
-          console.log('sentenceEmotions', sentenceEmotions); // Added
+          // console.log('sentenceEmotions', sentenceEmotions); // Added
           setEmotions(sentenceEmotions);
         }
       } catch (error) {
@@ -167,9 +168,6 @@ const App = () => {
     }, 25000); // 25 seconds timeout
   };
   
-  
-  
-
   const mapEmotionsToSpeakers = () => {
     const speakerEmotionMap = {};
 
@@ -189,55 +187,67 @@ const App = () => {
 
   const speakerEmotionMap = mapEmotionsToSpeakers();
 
-  const createChartData = (speakerData) => {
-    console.log('speakerData', speakerData);
+  const createChartData = (speakerData, page) => {
+    const itemsPerPage = 5;
+    const startIndex = page * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedData = speakerData.slice(startIndex, endIndex);
+    
+    console.log('speakerData', paginatedData);
     return {
-      labels: speakerData.map((data) => data.text),
+      labels: paginatedData.map((data) => data.text),
       datasets: [
         {
           label: 'Boredom Emotion Score',
-          data: speakerData.map((data) => data.emotions.Boredom),
+          data: paginatedData.map((data) => data.emotions.Boredom),
           backgroundColor: 'rgba(255, 99, 132, 0.2)',
           borderColor: 'rgba(255, 99, 132, 1)',
           borderWidth: 1,
         },
         {
           label: 'Interest Emotion Score',
-          data: speakerData.map((data) => data.emotions.Interest),
+          data: paginatedData.map((data) => data.emotions.Interest),
           backgroundColor: 'rgba(75, 192, 192, 0.2)',
           borderColor: 'rgba(75, 192, 192, 1)',
           borderWidth: 1,
         },
         {
           label: 'Tiredness Emotion Score',
-          data: speakerData.map((data) => data.emotions.Tiredness),
+          data: paginatedData.map((data) => data.emotions.Tiredness),
           backgroundColor: 'rgba(54, 162, 235, 0.2)',
           borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1,
         },
         {
           label: 'Doubt Emotion Score',
-          data: speakerData.map((data) => data.emotions.Doubt),
+          data: paginatedData.map((data) => data.emotions.Doubt),
           backgroundColor: 'rgba(255, 206, 86, 0.2)',
           borderColor: 'rgba(255, 206, 86, 1)',
           borderWidth: 1,
         },
         {
           label: 'Confusion Emotion Score',
-          data: speakerData.map((data) => data.emotions.Confusion),
+          data: paginatedData.map((data) => data.emotions.Confusion),
           backgroundColor: 'rgba(153, 102, 255, 0.2)',
           borderColor: 'rgba(153, 102, 255, 1)',
           borderWidth: 1,
         },
         {
           label: 'Disappointment Emotion Score',
-          data: speakerData.map((data) => data.emotions.Disappointment),
+          data: paginatedData.map((data) => data.emotions.Disappointment),
           backgroundColor: 'rgba(255, 159, 64, 0.2)',
           borderColor: 'rgba(255, 159, 64, 1)',
           borderWidth: 1,
         }
       ],
     };
+  };
+
+  const handlePageChange = (speaker, direction) => {
+    setSpeakerPage(prev => ({
+      ...prev,
+      [speaker]: (prev[speaker] || 0) + direction
+    }));
   };
 
   return (
@@ -273,7 +283,21 @@ const App = () => {
       {Object.keys(speakerEmotionMap).map(speaker => (
         <div key={speaker}>
           <h2>Speaker {speaker}</h2>
-          <Bar data={createChartData(speakerEmotionMap[speaker])} options={{ responsive: true }} />
+          <Bar data={createChartData(speakerEmotionMap[speaker], speakerPage[speaker] || 0)} options={{ responsive: true }} />
+          <div>
+            <button 
+              onClick={() => handlePageChange(speaker, -1)} 
+              disabled={(speakerPage[speaker] || 0) === 0}
+            >
+              Previous
+            </button>
+            <button 
+              onClick={() => handlePageChange(speaker, 1)} 
+              disabled={((speakerPage[speaker] || 0) + 1) * 5 >= speakerEmotionMap[speaker].length}
+            >
+              Next
+            </button>
+          </div>
         </div>
       ))}
     </div>
@@ -281,6 +305,3 @@ const App = () => {
 };
 
 export default App;
-
-
-
