@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 
-ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const App = () => {
   const [transcript, setTranscript] = useState([]);
@@ -13,54 +13,51 @@ const App = () => {
   const [jobId, setJobId] = useState('');
   const [emotions, setEmotions] = useState([]);
   const [audioUrl, setAudioUrl] = useState('https://res.cloudinary.com/dj3qabx11/video/upload/v1722643214/89-how-have-you-been_oj2f5r.mp3');
-
   const [speakerPage, setSpeakerPage] = useState({});
 
- const handleTranscribe = async () => {
-  setLoadingTranscription(true);
-  try {
-    const response = await axios.post(
-      'https://api.assemblyai.com/v2/transcript',
-      {
-        audio_url: audioUrl,
-        speaker_labels: true,
-        language_detection: true,  // Enable automatic language detection
-      },
-      {
-        headers: {
-          authorization: import.meta.env.VITE_UNIVERSAL_API_KEY,
-          'content-type': 'application/json',
+  const handleTranscribe = async () => {
+    setLoadingTranscription(true);
+    try {
+      const response = await axios.post(
+        'https://api.assemblyai.com/v2/transcript',
+        {
+          audio_url: audioUrl,
+          speaker_labels: true,
         },
-      }
-    );
+        {
+          headers: {
+            authorization: import.meta.env.VITE_UNIVERSAL_API_KEY,
+            'content-type': 'application/json',
+          },
+        }
+      );
 
-    const { id } = response.data;
-    const checkStatusInterval = setInterval(async () => {
-      const statusResponse = await axios.get(`https://api.assemblyai.com/v2/transcript/${id}`, {
-        headers: {
-          authorization: import.meta.env.VITE_UNIVERSAL_API_KEY,
-        },
-      });
+      const { id } = response.data;
+      const checkStatusInterval = setInterval(async () => {
+        const statusResponse = await axios.get(`https://api.assemblyai.com/v2/transcript/${id}`, {
+          headers: {
+            authorization: import.meta.env.VITE_UNIVERSAL_API_KEY,
+          },
+        });
 
-      if (statusResponse.data.status === 'completed') {
-        clearInterval(checkStatusInterval);
-        const utterances = statusResponse.data.utterances || [];
-        console.log('utterances', utterances);
-        setTranscript(utterances);
-        setLoadingTranscription(false);
-      } else if (statusResponse.data.status === 'failed') {
-        clearInterval(checkStatusInterval);
-        setTranscript('Transcription failed');
-        setLoadingTranscription(false);
-      }
-    }, 5000);
-  } catch (error) {
-    console.error('Error transcribing audio:', error);
-    setTranscript('Error transcribing audio');
-    setLoadingTranscription(false);
-  }
-};
-
+        if (statusResponse.data.status === 'completed') {
+          clearInterval(checkStatusInterval);
+          const utterances = statusResponse.data.utterances || [];
+          console.log('utterances', utterances);
+          setTranscript(utterances);
+          setLoadingTranscription(false);
+        } else if (statusResponse.data.status === 'failed') {
+          clearInterval(checkStatusInterval);
+          setTranscript('Transcription failed');
+          setLoadingTranscription(false);
+        }
+      }, 5000);
+    } catch (error) {
+      console.error('Error transcribing audio:', error);
+      setTranscript('Error transcribing audio');
+      setLoadingTranscription(false);
+    }
+  };
 
   const handleEmotionAnalysis = async () => {
     setLoadingEmotionAnalysis(true);
@@ -107,19 +104,20 @@ const App = () => {
           const wordEmotions = prediction.models.language.grouped_predictions[0].predictions;
   
           const sentenceEmotions = transcript.map(sentence => {
-            const words = sentence.text.split(' ').slice(0, 4).map(word => 
-              word.replace(/[.,!?]/g, '').toLowerCase()
-            ); // Normalize words for both languages
+            const words = sentence.text.split(' ').slice(0, 4).map(word => word.replace(/[.,!?]/g, '').toLowerCase()); // Normalize words
             const uniqueWords = new Set();
             const matchingWords = wordEmotions.filter(wordEmotion => {
-              const normalizedWord = wordEmotion.text.replace(/[.,!?]/g, '').toLowerCase();
+              const normalizedWord = wordEmotion.text.replace(/[.,!?]/g, '').toLowerCase(); // Normalize wordEmotion text
               if (uniqueWords.has(normalizedWord) || !words.includes(normalizedWord)) {
                 return false;
               }
               uniqueWords.add(normalizedWord);
               return true;
             });
-          
+  
+            // console.log('words', words); // Added
+            // console.log('matchingWords', matchingWords); // Added
+  
             const averagedEmotions = {
               Boredom: 0,
               Interest: 0,
@@ -128,7 +126,7 @@ const App = () => {
               Confusion: 0,
               Disappointment: 0
             };
-          
+  
             matchingWords.forEach(wordEmotion => {
               const boredom = wordEmotion.emotions.find(e => e.name === 'Boredom')?.score || 0;
               const interest = wordEmotion.emotions.find(e => e.name === 'Interest')?.score || 0;
@@ -136,7 +134,7 @@ const App = () => {
               const doubt = wordEmotion.emotions.find(e => e.name === 'Doubt')?.score || 0;
               const confusion = wordEmotion.emotions.find(e => e.name === 'Confusion')?.score || 0;
               const disappointment = wordEmotion.emotions.find(e => e.name === 'Disappointment')?.score || 0;
-          
+  
               averagedEmotions.Boredom += boredom;
               averagedEmotions.Interest += interest;
               averagedEmotions.Tiredness += tiredness;
@@ -144,7 +142,7 @@ const App = () => {
               averagedEmotions.Confusion += confusion;
               averagedEmotions.Disappointment += disappointment;
             });
-          
+  
             const wordCount = matchingWords.length || 1; // Avoid division by zero
             averagedEmotions.Boredom /= wordCount;
             averagedEmotions.Interest /= wordCount;
@@ -152,13 +150,12 @@ const App = () => {
             averagedEmotions.Doubt /= wordCount;
             averagedEmotions.Confusion /= wordCount;
             averagedEmotions.Disappointment /= wordCount;
-          
+  
             return {
               ...sentence,
               emotions: averagedEmotions
             };
           });
-          
   
           // console.log('sentenceEmotions', sentenceEmotions); // Added
           setEmotions(sentenceEmotions);
@@ -206,7 +203,6 @@ const App = () => {
           backgroundColor: 'rgba(255, 99, 132, 0.2)',
           borderColor: 'rgba(255, 99, 132, 1)',
           borderWidth: 1,
-          fill: false,
         },
         {
           label: 'Interest Emotion Score',
@@ -214,7 +210,6 @@ const App = () => {
           backgroundColor: 'rgba(75, 192, 192, 0.2)',
           borderColor: 'rgba(75, 192, 192, 1)',
           borderWidth: 1,
-          fill: false,
         },
         {
           label: 'Tiredness Emotion Score',
@@ -222,7 +217,6 @@ const App = () => {
           backgroundColor: 'rgba(54, 162, 235, 0.2)',
           borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1,
-          fill: false,
         },
         {
           label: 'Doubt Emotion Score',
@@ -230,7 +224,6 @@ const App = () => {
           backgroundColor: 'rgba(255, 206, 86, 0.2)',
           borderColor: 'rgba(255, 206, 86, 1)',
           borderWidth: 1,
-          fill: false,
         },
         {
           label: 'Confusion Emotion Score',
@@ -238,7 +231,6 @@ const App = () => {
           backgroundColor: 'rgba(153, 102, 255, 0.2)',
           borderColor: 'rgba(153, 102, 255, 1)',
           borderWidth: 1,
-          fill: false,
         },
         {
           label: 'Disappointment Emotion Score',
@@ -246,7 +238,6 @@ const App = () => {
           backgroundColor: 'rgba(255, 159, 64, 0.2)',
           borderColor: 'rgba(255, 159, 64, 1)',
           borderWidth: 1,
-          fill: false,
         }
       ],
     };
@@ -292,7 +283,7 @@ const App = () => {
       {Object.keys(speakerEmotionMap).map(speaker => (
         <div key={speaker}>
           <h2>Speaker {speaker}</h2>
-          <Line data={createChartData(speakerEmotionMap[speaker], speakerPage[speaker] || 0)} options={{ responsive: true }} />
+          <Bar data={createChartData(speakerEmotionMap[speaker], speakerPage[speaker] || 0)} options={{ responsive: true }} />
           <div>
             <button 
               onClick={() => handlePageChange(speaker, -1)} 
