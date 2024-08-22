@@ -12,8 +12,8 @@ const App = () => {
   const [loadingEmotionFetch, setLoadingEmotionFetch] = useState(false);
   const [jobId, setJobId] = useState('');
   const [emotions, setEmotions] = useState([]);
-  const [audioUrl, setAudioUrl] = useState('https://res.cloudinary.com/dbpoimxpx/video/upload/v1724237756/audio_1_rnxjvt.mp3');
-  const [selectedLanguage, setSelectedLanguage] = useState('en'); 
+  const [audioUrl, setAudioUrl] = useState('https://res.cloudinary.com/dj3qabx11/video/upload/v1722643214/89-how-have-you-been_oj2f5r.mp3');
+
   const [speakerPage, setSpeakerPage] = useState({});
 
  const handleTranscribe = async () => {
@@ -64,15 +64,11 @@ const App = () => {
 
   const handleEmotionAnalysis = async () => {
     setLoadingEmotionAnalysis(true);
-    console.log('selected language ', selectedLanguage)
     try {
       const response = await axios.post(
         'https://api.hume.ai/v0/batch/jobs',
         {
-          urls: [audioUrl],
-          transcription: {
-            language: selectedLanguage
-          },
+          urls: [audioUrl]
         },
         {
           headers: {
@@ -280,14 +276,6 @@ const App = () => {
   return (
     <div className='p-10 max-h-screen max-w-1/2'>
       <h1>Audio Transcription and Emotion Analysis</h1>
-      <select 
-      value={selectedLanguage} 
-      onChange={(e) => setSelectedLanguage(e.target.value)} 
-      className="mb-4 p-2 border"
-    >
-      <option value="hi">Hindi</option>
-      <option value="en">English</option>
-    </select>
       <input 
         type="text" 
         placeholder="Enter audio URL" 
