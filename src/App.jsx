@@ -191,11 +191,15 @@ const App = () => {
   const speakerEmotionMap = mapEmotionsToSpeakers();
 
   const createChartData = (speakerData, page) => {
+      
+    console.log('Speaker Data:', speakerData);
     const itemsPerPage = 5;
     const startIndex = page * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const paginatedData = speakerData.slice(startIndex, endIndex);
-  
+    console.log('Paginated Data:', paginatedData);
+    const emotionsData = paginatedData.map((data) => data.emotions);
+    console.log('Emotions Data:', emotionsData);
     const truncateText = (text) => {
       const words = text.split(' ');
       if (words.length > 10) {
@@ -204,7 +208,7 @@ const App = () => {
       return text;
     };
   
-    return {
+    const chartData = {
       labels: paginatedData.map((data) => truncateText(data.text)),
       datasets: [
         {
@@ -257,6 +261,8 @@ const App = () => {
         }
       ],
     };
+    console.log('Chart Data:', chartData);
+  return chartData;
   };
   
 
