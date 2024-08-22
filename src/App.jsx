@@ -195,10 +195,17 @@ const App = () => {
     const startIndex = page * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const paginatedData = speakerData.slice(startIndex, endIndex);
-    
-    console.log('speakerData', paginatedData);
+  
+    const truncateText = (text) => {
+      const words = text.split(' ');
+      if (words.length > 10) {
+        return `${words.slice(0, 5).join(' ')} ... ${words.slice(-5).join(' ')}`;
+      }
+      return text;
+    };
+  
     return {
-      labels: paginatedData.map((data) => data.text),
+      labels: paginatedData.map((data) => truncateText(data.text)),
       datasets: [
         {
           label: 'Boredom Emotion Score',
@@ -251,6 +258,7 @@ const App = () => {
       ],
     };
   };
+  
 
   const handlePageChange = (speaker, direction) => {
     setSpeakerPage(prev => ({
